@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数字闪一下动态视力测试</title>
+<style>
+:root{--bg:#0f172a;--text:#e6eef8;--accent:#7dd3fc;}
+body{
+  margin:0;
+  font-family:system-ui,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.app{
+  background:rgba(255,255,255,0.02);
+  padding:20px;
+  border-radius:12px;
+  text-align:center;
+  max-width:600px;
+  width: 100%;
+}
+.digit{
+  font-size:64px;
+  font-weight:bold;
+  color:var(--accent);
+  margin:30px 0;
+  opacity:0;
+  transition:opacity 0.2s;
+  letter-spacing: 12px;
+}
+button{
+  flex:1;
+  min-width:50px;
+  padding:10px 0;
+  margin:2px;
+  font-size:16px;
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,0.2);
+  background:rgba(255,255,255,0.02);
+  color:var(--text);
+  cursor:pointer;
+  text-align:center;
+}
+#levelButtons{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:4px;
+  margin-bottom:15px;
+}
+#keypad{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:4px;
+  margin-top:10px;
+}
+#inputDisplay{
+  margin-bottom:15px;
+  font-size:20px;
+  color:var(--accent);
+}
+.countdown{
+  font-size:20px;
+  margin:10px 0;
+  color:var(--accent);
+}
+@media(max-width:480px){
+  button{
+    font-size:14px;
+    min-width:40px;
+  }
+  .digit{
+    font-size:48px;
+    margin:20px 0;
+    letter-spacing:8px;
+  }
+  #inputDisplay{
+    font-size:18px;
+    margin-bottom:12px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>数字闪一下动态视力测试</h1>
+<div id="levelButtons">
+  <button class="level-btn" data-level="1">第1级</button>
+  <button class="level-btn" data-level="2">第2级</button>
+  <button class="level-btn" data-level="3">第3级</button>
+  <button class="level-btn" data-level="4">第4级</button>
+  <button class="level-btn" data-level="5">第5级</button>
+</div>
+<div class="countdown" id="countdown">倒计时: --</div>
+<div class="digit" id="digitDisplay">0</div>
+<div id="inputDisplay">输入: </div>
+<div id="keypad">
+  <button class="key-btn">0</button>
+  <button class="key-btn">1</button>
+  <button class="key-btn">2</button>
+  <button class="key-btn">3</button>
+  <button class="key-btn">4</button>
+  <button class="key-btn">5</button>
+  <button class="key-btn">6</button>
+  <button class="key-btn">7</button>
+  <button class="key-btn">8</button>
+  <button class="key-btn">9</button>
+  <button id="unknownBtn">不知道</button>
+  <button id="deleteBtn">删除</button>
+  <button id="submitBtn">解答</button>
+</div>
+<div id="result"></div>
+</div>
+
+<script>
+window.onload = function() {
+  const LEVELS = {1:[2,3],2:[3,4],3:[4,5],4:[6,6],5:[6,7]};
+  const digitEl = document.getElementById('digitDisplay');
+  const countdownEl = document.getElementById('countdown');
+  const resultEl = document.getElementById('result');
+  const inputDisplay = document.getElementById('inputDisplay');
+  const levelButtons = document.querySelectorAll('.level-btn');
+  const numberButtons = document.querySelectorAll('.key-btn');
+  const submitBtn = document.getElementById('submitBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  const unknownBtn = document.getElementById('unknownBtn');
+  
+  let sequence = '';
+  let answer = '';
+  let canInput = false;
+  let currentLevel = 1;
+
+  let roundCount = 0;
+  const maxRounds = 3;
+
+  let userAnswers = [];
+  let correctAnswers = [];
+
+  function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+  function generateSequence(level){
+    const [min,max] = LEVELS[level];
+    const len = randInt(min,max);
+    let seq='';
+    for(let i=0;i<len;i++){seq+=randInt(0,9);}
+    return seq;
+  }
+
+  async function startTrial(level){
+    if(roundCount >= maxRounds){
+      // 保存并跳转
+      localStorage.setItem('userAnswers', JSON.stringify(userAnswers));
+      localStorage.setItem('correctAnswers', JSON.stringify(correctAnswers));
+      window.location.href = 'mmh.html';
+      return;
+    }
+
+    currentLevel = level;
+    roundCount++;
+    sequence = generateSequence(level);
+    answer = '';
+    canInput = false;
+    updateDisplay();
+    resultEl.textContent = '';
+    digitEl.style.opacity = 0;
+
+    for(let i=3;i>=1;i--){
+      countdownEl.textContent = `倒计时: ${i}`;
+      await new Promise(r=>setTimeout(r,1000));
+    }
+    countdownEl.textContent='';
+
+    digitEl.textContent = sequence.split('').join(' ');
+    digitEl.style.opacity = 1;
+    await new Promise(r=>setTimeout(r,800));
+    digitEl.style.opacity = 0;
+
+    canInput = true;
+    updateDisplay();
+  }
+
+  function updateDisplay(){
+    inputDisplay.textContent = '输入: ' + (canInput ? (answer||'') : '');
+  }
+
+  function nextTrialAfterDelay(){
+    setTimeout(()=>startTrial(currentLevel), 1000);
+  }
+
+  levelButtons.forEach(btn=>{
+    btn.addEventListener('click', () => {
+      roundCount = 0;
+      userAnswers = [];
+      correctAnswers = [];
+      const level = Number(btn.dataset.level);
+      startTrial(level);
+    });
+  });
+
+  numberButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(!canInput) return;
+      const val = btn.textContent.trim();
+      answer += val;
+      updateDisplay();
+    });
+  });
+
+  deleteBtn.addEventListener('click', ()=>{
+    if(!canInput) return;
+    answer = answer.slice(0,-1);
+    updateDisplay();
+  });
+
+  submitBtn.addEventListener('click', ()=>{
+    if(!canInput) return;
+    userAnswers.push(answer);
+    correctAnswers.push(sequence);
+    if(answer === sequence){
+      resultEl.textContent = '正确 ✅';
+    } else {
+      resultEl.textContent = `错误 ❌，你输入: ${answer||'(空)'}, 正确答案: ${sequence}`;
+    }
+    canInput = false;
+    nextTrialAfterDelay();
+  });
+
+  unknownBtn.addEventListener('click', ()=>{
+    if(!canInput) return;
+    answer = '不知道';
+    userAnswers.push(answer);
+    correctAnswers.push(sequence);
+    updateDisplay();
+    canInput = false;
+    nextTrialAfterDelay();
+  });
+};
+</script>
+</body>
+</html>
